@@ -1,0 +1,16 @@
+:root {
+  --header-height: 68px;
+}
+
+.site-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding:
+    calc(var(--header-height) + clamp(24px, 5vw, 56px))
+    clamp(16px, 4vw, 32px)
+    clamp(24px, 5vw, 56px);
+  outline: none;
+  scroll-margin-top: var(--header-height);
+}

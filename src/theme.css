@@ -1,0 +1,30 @@
+:root {
+  --color-primary: #F2FAFC;
+  --color-secondary: #B6D4DF;
+  --color-accent: #5FE0D4;
+  --color-accent-soft: rgba(95, 224, 212, 0.25);
+  --color-accent-glow: rgba(95, 224, 212, 0.55);
+  --color-background: #07182B;
+  --color-deep: #03101E;
+  --color-mid: #0E2D45;
+  --color-light: #1A4A6E;
+  --color-surface: #0F2235;
+  --color-glass: rgba(15, 34, 53, 0.45);
+  --color-glass-strong: rgba(15, 34, 53, 0.7);
+  --color-text: #E0F0F5;
+  --color-text-muted: #8AB0C2;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+  --color-error: #FF8B95;
+  --color-error-soft: rgba(255, 139, 149, 0.15);
+}
+
+/*
+  Underwater theme — WCAG 2.2 AA contrast on #07182B:
+   - primary   #F2FAFC ~17:1  ✓ headings (light ink)
+   - text      #E0F0F5 ~15:1  ✓ body
+   - secondary #B6D4DF ~10:1  ✓ body
+   - muted     #8AB0C2 ~5.5:1 ✓ secondary text
+   - accent    #5FE0D4 ~7.9:1 ✓ AAA — bioluminescent cyan, safe for headings & UI
+   - error     #FF8B95 ~5.2:1 ✓ error text
+*/

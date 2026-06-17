@@ -1,0 +1,15 @@
+.placeholder {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+
+  h1 {
+    font-size: clamp(32px, 5vw, 48px);
+    margin-bottom: 12px;
+  }
+
+  p {
+    color: var(--color-text-muted);
+    font-size: 17px;
+  }
+}
