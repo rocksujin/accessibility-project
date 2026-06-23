@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { requestScan, describeScanError } from "../api";
 import "./UrlForm.scss";
 
 type Result = { url: string; score: number; issues: number };
@@ -61,10 +62,20 @@ export function UrlForm({
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setResult({ url: normalized, score: 87, issues: 4 });
-    }, 1200);
+    // Actually hit the scanner so a non-existent / blocked URL surfaces a real
+    // error here instead of a fake result card. (Score is still illustrative;
+    // the issue count comes from the live scan.)
+    requestScan(normalized)
+      .then((data) => {
+        setLoading(false);
+        const issues = data.stops.filter((s) => s.issue).length;
+        setResult({ url: normalized, score: 87, issues });
+      })
+      .catch((err: unknown) => {
+        setLoading(false);
+        const info = describeScanError(err);
+        setError(`${info.heading}: ${info.message}`);
+      });
   };
 
   const buttonText =
