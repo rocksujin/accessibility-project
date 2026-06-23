@@ -9,6 +9,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { UrlForm } from "../components/UrlForm";
 import { Diving } from "../components/Diving";
 import { ExplainPanel } from "../components/ExplainPanel";
+import { requestScan, describeScanError, type ScanErrorInfo } from "../api";
 import "./Analyze.scss";
 
 type Severity = "critical" | "serious" | "moderate" | "minor";
@@ -329,20 +330,36 @@ export function Analyze() {
   const standard: Standard =
     params.get("standard") === "kwcag" ? "kwcag" : "wcag";
 
-  const [phase, setPhase] = useState<"idle" | "loading" | "done">(
+  const [phase, setPhase] = useState<"idle" | "loading" | "done" | "error">(
     url ? "loading" : "idle",
   );
+  const [error, setError] = useState<ScanErrorInfo | null>(null);
 
   const tabsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!url) {
       setPhase("idle");
+      setError(null);
       return;
     }
+    let cancelled = false;
     setPhase("loading");
-    const t = setTimeout(() => setPhase("done"), 2500);
-    return () => clearTimeout(t);
+    setError(null);
+    // The audit findings below are illustrative, but we still hit the scanner so
+    // a non-existent / blocked URL surfaces a real error instead of a fake report.
+    requestScan(url)
+      .then(() => {
+        if (!cancelled) setPhase("done");
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setError(describeScanError(e));
+        setPhase("error");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [url]);
 
   const score = useMemo(() => (url ? mockScore(url) : 0), [url]);
@@ -392,6 +409,23 @@ export function Analyze() {
     return (
       <div className="analyze analyze--loading">
         <Diving url={url ?? undefined} />
+      </div>
+    );
+  }
+
+  if (phase === "error") {
+    const info = error ?? {
+      heading: "Scan failed",
+      message: "The scanner returned an error.",
+    };
+    return (
+      <div className="analyze analyze--idle">
+        <header className="analyze__intro">
+          <p className="analyze__eyebrow">{info.heading}</p>
+          <h1 className="analyze__title">Couldn&rsquo;t audit that URL.</h1>
+          <p className="analyze__lede">{info.message}</p>
+        </header>
+        <UrlForm />
       </div>
     );
   }

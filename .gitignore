@@ -1,2 +1,8 @@
 node_modules/
 .env
+.env.*
+!.env.example
+
+# Build output — published to the gh-pages branch by `npm run deploy`,
+# so it doesn't need to be tracked on main.
+dist/

@@ -9,7 +9,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { UrlForm } from "../components/UrlForm";
 import { Diving } from "../components/Diving";
 import { ExplainPanel } from "../components/ExplainPanel";
-import { apiUrl, ApiError } from "../api";
+import { requestScan, describeScanError, type ScanErrorInfo } from "../api";
 import "./Keyboard.scss";
 
 type IssueKind =
@@ -192,41 +192,17 @@ function bucketForKind(kind: IssueKind): Bucket {
 // ---------- API call ----------
 
 async function fetchScan(url: string): Promise<ScanResult> {
-  const res = await fetch(apiUrl("/api/scan"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
-  });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const j = await res.json();
-      detail = j.detail || j.error || detail;
-    } catch {
-      /* ignore */
-    }
-    throw new ApiError(res.status, detail);
-  }
-  const data = await res.json();
+  const data = await requestScan(url);
   const stops: Stop[] = data.stops.map(
-    (
-      s: {
-        tag: string;
-        type: ElementType;
-        label: string;
-        rect: { x: number; y: number; w: number; h: number };
-        issue?: { kind: IssueKind; detail: string };
-      },
-      i: number,
-    ): Stop => ({
+    (s, i): Stop => ({
       id: `s-${i}`,
       label: s.label || `(unnamed ${s.tag.toLowerCase()})`,
-      type: s.type,
+      type: s.type as ElementType,
       x: s.rect.x,
       y: s.rect.y,
       w: s.rect.w,
       h: s.rect.h,
-      issue: s.issue,
+      issue: s.issue as Stop["issue"],
     }),
   );
   return {
@@ -236,91 +212,6 @@ async function fetchScan(url: string): Promise<ScanResult> {
     screenshot: data.screenshot,
     stops,
     source: "live",
-  };
-}
-
-// ---------- error messages ----------
-
-type ScanErrorInfo = { heading: string; message: string };
-
-// Turn a raw scan failure into a specific, human message. We classify on the
-// backend HTTP status and the upstream response status / Playwright error text.
-function describeScanError(err: unknown): ScanErrorInfo {
-  const status = err instanceof ApiError ? err.status : 0;
-  const raw = err instanceof Error ? err.message : String(err);
-  const d = raw.toLowerCase();
-
-  // Our own backend couldn't be reached (e.g. static host answered the POST, or
-  // VITE_API_BASE points at the wrong place).
-  if (status === 404 || status === 405) {
-    return {
-      heading: "Scanner offline",
-      message:
-        "The scanner service couldn't be reached. Please try again in a moment.",
-    };
-  }
-
-  // The backend rejected the input as not a valid URL.
-  if (status === 400) {
-    return {
-      heading: "Invalid URL",
-      message: "That isn't a valid http(s) address. Check it and try again.",
-    };
-  }
-
-  const upstream = raw.match(/UPSTREAM_STATUS (\d+)/);
-  const upstreamCode = upstream ? Number(upstream[1]) : 0;
-
-  // The page doesn't exist: unknown domain (DNS) or a 404/410 from the server.
-  if (
-    upstreamCode === 404 ||
-    upstreamCode === 410 ||
-    d.includes("err_name_not_resolved") ||
-    d.includes("name not resolved") ||
-    d.includes("enotfound") ||
-    d.includes("getaddrinfo")
-  ) {
-    return {
-      heading: "Page not found",
-      message:
-        "That page doesn't exist. Double-check the URL for typos and try again.",
-    };
-  }
-
-  // The site blocked our automated browser: bot protection, login wall, or rate
-  // limiting (403/401/429/451/503), or the navigation timed out / was aborted.
-  if (
-    upstreamCode === 401 ||
-    upstreamCode === 403 ||
-    upstreamCode === 407 ||
-    upstreamCode === 429 ||
-    upstreamCode === 451 ||
-    upstreamCode === 503 ||
-    d.includes("timeout") ||
-    d.includes("err_aborted") ||
-    d.includes("err_http2") ||
-    d.includes("err_connection") ||
-    d.includes("econnrefused") ||
-    d.includes("blocked")
-  ) {
-    return {
-      heading: "Site blocked the scan",
-      message:
-        "This site blocked our automated browser. Try a different, publicly accessible page.",
-    };
-  }
-
-  // Any other upstream error response.
-  if (upstreamCode >= 400) {
-    return {
-      heading: "Page couldn't be loaded",
-      message: `The site returned an error (HTTP ${upstreamCode}), so there was nothing to scan.`,
-    };
-  }
-
-  return {
-    heading: "Scan failed",
-    message: raw || "The scanner returned an error.",
   };
 }
 
