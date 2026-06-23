@@ -39,6 +39,32 @@ async function newScanContext(): Promise<BrowserContext> {
 }
 
 const app = express()
+
+// CORS: the frontend is hosted separately (e.g. GitHub Pages) and calls this
+// API cross-origin. ALLOWED_ORIGINS is a comma-separated allowlist; default "*"
+// allows any origin (fine here — no cookies/credentials are used).
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '*')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin
+  if (allowedOrigins.includes('*')) {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+  } else if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Vary', 'Origin')
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204)
+    return
+  }
+  next()
+})
+
 app.use(express.json({ limit: '1mb' }))
 
 app.get('/health', (_req, res) => {

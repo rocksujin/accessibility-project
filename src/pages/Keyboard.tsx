@@ -9,6 +9,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { UrlForm } from "../components/UrlForm";
 import { Diving } from "../components/Diving";
 import { ExplainPanel } from "../components/ExplainPanel";
+import { apiUrl } from "../api";
 import "./Keyboard.scss";
 
 type IssueKind =
@@ -191,7 +192,7 @@ function bucketForKind(kind: IssueKind): Bucket {
 // ---------- API call ----------
 
 async function fetchScan(url: string): Promise<ScanResult> {
-  const res = await fetch("/api/scan", {
+  const res = await fetch(apiUrl("/api/scan"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),

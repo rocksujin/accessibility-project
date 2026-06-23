@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 import { Diving } from "../components/Diving";
 import { ExplainPanel } from "../components/ExplainPanel";
+import { apiUrl } from "../api";
 import "./Component.scss";
 
 type IssueKind =
@@ -77,7 +78,7 @@ const EXAMPLE = `<form>
 <button aria-label="">⚙</button>`;
 
 async function fetchScanHtml(html: string): Promise<Result> {
-  const res = await fetch("/api/scan-html", {
+  const res = await fetch(apiUrl("/api/scan-html"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ html }),

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { apiUrl } from '../api'
 import './ExplainPanel.scss'
 
 export type ExplainPayload = {
@@ -95,7 +96,7 @@ export function ExplainPanel({ payload }: { payload: ExplainPayload }) {
     abortRef.current = ctrl
 
     try {
-      const res = await fetch('/api/explain', {
+      const res = await fetch(apiUrl('/api/explain'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

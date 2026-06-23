@@ -29,6 +29,7 @@ export function Header() {
     .join(' ')
 
   return (
+    <>
     <header className={headerClass}>
       <div className="site-header__inner">
         <Link to="/" className="site-header__brand" aria-label="kayai — home">
@@ -63,5 +64,12 @@ export function Header() {
         </nav>
       </div>
     </header>
+
+    <div
+      className={`site-header__backdrop ${open ? 'is-open' : ''}`}
+      aria-hidden="true"
+      onClick={() => setOpen(false)}
+    />
+    </>
   )
 }
