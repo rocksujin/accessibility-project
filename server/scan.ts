@@ -19,14 +19,21 @@ export async function scanUrl(page: Page, url: string): Promise<{
 }> {
   await page.setViewportSize({ width: VIEWPORT.w, height: VIEWPORT.h })
 
-  await page.goto(url, {
-    waitUntil: 'networkidle',
-    timeout: 15_000,
-  }).catch(async (e) => {
-    // networkidle can hang on long-polling sites; fall back to domcontentloaded
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10_000 })
-    void e
-  })
+  const response = await page
+    .goto(url, { waitUntil: 'networkidle', timeout: 15_000 })
+    .catch(() =>
+      // networkidle can hang on long-polling sites; fall back to domcontentloaded
+      page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10_000 }),
+    )
+
+  // goto() does NOT throw on HTTP error responses (403 bot-walls, 404 pages, …),
+  // so inspect the status explicitly. The frontend maps this to a friendly
+  // message ("blocked" vs "page not found"). DNS/connection failures throw above
+  // and propagate as the raw Playwright error instead.
+  const status = response?.status()
+  if (status && status >= 400) {
+    throw new Error(`UPSTREAM_STATUS ${status}`)
+  }
 
   // give late JS a beat to render UI controls
   await page.waitForTimeout(400)

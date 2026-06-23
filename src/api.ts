@@ -12,3 +12,13 @@ const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 export function apiUrl(path: string): string {
   return `${API_BASE}${path}`;
 }
+
+/** Error thrown for a non-OK API response; carries the HTTP status. */
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, detail: string) {
+    super(detail);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}

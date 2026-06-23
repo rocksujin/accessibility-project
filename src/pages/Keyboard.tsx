@@ -9,7 +9,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { UrlForm } from "../components/UrlForm";
 import { Diving } from "../components/Diving";
 import { ExplainPanel } from "../components/ExplainPanel";
-import { apiUrl } from "../api";
+import { apiUrl, ApiError } from "../api";
 import "./Keyboard.scss";
 
 type IssueKind =
@@ -205,7 +205,7 @@ async function fetchScan(url: string): Promise<ScanResult> {
     } catch {
       /* ignore */
     }
-    throw new Error(detail);
+    throw new ApiError(res.status, detail);
   }
   const data = await res.json();
   const stops: Stop[] = data.stops.map(
@@ -236,6 +236,91 @@ async function fetchScan(url: string): Promise<ScanResult> {
     screenshot: data.screenshot,
     stops,
     source: "live",
+  };
+}
+
+// ---------- error messages ----------
+
+type ScanErrorInfo = { heading: string; message: string };
+
+// Turn a raw scan failure into a specific, human message. We classify on the
+// backend HTTP status and the upstream response status / Playwright error text.
+function describeScanError(err: unknown): ScanErrorInfo {
+  const status = err instanceof ApiError ? err.status : 0;
+  const raw = err instanceof Error ? err.message : String(err);
+  const d = raw.toLowerCase();
+
+  // Our own backend couldn't be reached (e.g. static host answered the POST, or
+  // VITE_API_BASE points at the wrong place).
+  if (status === 404 || status === 405) {
+    return {
+      heading: "Scanner offline",
+      message:
+        "The scanner service couldn't be reached. Please try again in a moment.",
+    };
+  }
+
+  // The backend rejected the input as not a valid URL.
+  if (status === 400) {
+    return {
+      heading: "Invalid URL",
+      message: "That isn't a valid http(s) address. Check it and try again.",
+    };
+  }
+
+  const upstream = raw.match(/UPSTREAM_STATUS (\d+)/);
+  const upstreamCode = upstream ? Number(upstream[1]) : 0;
+
+  // The page doesn't exist: unknown domain (DNS) or a 404/410 from the server.
+  if (
+    upstreamCode === 404 ||
+    upstreamCode === 410 ||
+    d.includes("err_name_not_resolved") ||
+    d.includes("name not resolved") ||
+    d.includes("enotfound") ||
+    d.includes("getaddrinfo")
+  ) {
+    return {
+      heading: "Page not found",
+      message:
+        "That page doesn't exist. Double-check the URL for typos and try again.",
+    };
+  }
+
+  // The site blocked our automated browser: bot protection, login wall, or rate
+  // limiting (403/401/429/451/503), or the navigation timed out / was aborted.
+  if (
+    upstreamCode === 401 ||
+    upstreamCode === 403 ||
+    upstreamCode === 407 ||
+    upstreamCode === 429 ||
+    upstreamCode === 451 ||
+    upstreamCode === 503 ||
+    d.includes("timeout") ||
+    d.includes("err_aborted") ||
+    d.includes("err_http2") ||
+    d.includes("err_connection") ||
+    d.includes("econnrefused") ||
+    d.includes("blocked")
+  ) {
+    return {
+      heading: "Site blocked the scan",
+      message:
+        "This site blocked our automated browser. Try a different, publicly accessible page.",
+    };
+  }
+
+  // Any other upstream error response.
+  if (upstreamCode >= 400) {
+    return {
+      heading: "Page couldn't be loaded",
+      message: `The site returned an error (HTTP ${upstreamCode}), so there was nothing to scan.`,
+    };
+  }
+
+  return {
+    heading: "Scan failed",
+    message: raw || "The scanner returned an error.",
   };
 }
 
@@ -271,7 +356,7 @@ export function Keyboard() {
     url ? "loading" : "idle",
   );
   const [result, setResult] = useState<ScanResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ScanErrorInfo | null>(null);
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -296,7 +381,7 @@ export function Keyboard() {
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : String(e));
+        setError(describeScanError(e));
         setPhase("error");
       });
     return () => {
@@ -328,7 +413,7 @@ export function Keyboard() {
         setPhase("done");
       })
       .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : String(e));
+        setError(describeScanError(e));
         setPhase("error");
       });
   };
@@ -410,15 +495,18 @@ export function Keyboard() {
 
   // ---- Error ----
   if (phase === "error" || !result) {
+    const info = error ?? {
+      heading: "Scan failed",
+      message: "The scanner returned an error.",
+    };
     return (
       <div className="kb kb--error">
         <header className="kb__intro">
-          <p className="kb__eyebrow">Scan failed</p>
+          <p className="kb__eyebrow">{info.heading}</p>
           <h1 className="kb__title">Couldn&rsquo;t scan that URL.</h1>
           <p className="kb__lede">
-            {error ?? "The scanner returned an error."} Some sites block
-            automated browsers (Cloudflare, login walls). You can retry, or load
-            the demo mock to keep exploring the visualizer.
+            {info.message} You can retry, or load the demo mock to keep
+            exploring the visualizer.
           </p>
         </header>
         <div className="kb__buttons">
