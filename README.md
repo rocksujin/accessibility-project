@@ -17,6 +17,17 @@ cp .env.example .env   # then add your ANTHROPIC_API_KEY
 
 The `postinstall` hook downloads Chromium for Playwright (~170 MB; one-time, runs after every `npm install`). If you ever want to skip it, set `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` before installing.
 
+### Environment variables
+
+See `.env.example` for the full list. The key ones:
+
+| Variable | Side | Purpose |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | server | Enables the `/api/explain` endpoint (AI fix suggestions). |
+| `PORT` | server | Port the scan server listens on (default `3001`; host platforms usually inject this). |
+| `ALLOWED_ORIGINS` | server | Comma-separated CORS allowlist of frontend origins. Default `*` allows any. Lock this down in production, e.g. `https://<your-username>.github.io`. |
+| `VITE_API_BASE` | frontend (build-time) | Backend origin the SPA calls. Leave **unset** in dev (Vite proxies `/api` to `:3001`). Set it when building for static hosting so POSTs hit the real backend instead of returning 405. |
+
 ### AI explanations (optional)
 
 The Audit, Focus Flow, and Snippet Check pages have a **"✨ Explain & suggest fix"** button on each detected issue. Clicking it streams a plain-language explanation plus a code fix from Claude (Haiku 4.5).
@@ -87,6 +98,28 @@ When a scan fails, the Keyboard page shows an error state with a **Try again** b
 
 ## Deployment
 
-The frontend is a static SPA; build with `npm run build` and host on any static host.
+The frontend and the scan server deploy separately.
 
-The scan server is **not yet wired for production deployment.** It needs a Node host that supports installing Playwright/Chromium (Railway, Fly.io, Render, a small VPS). Adjust the frontend's API base URL (currently hard-coded as `/api/scan`) to point at the deployed server.
+### Frontend (static SPA)
+
+Build and host on any static host (GitHub Pages, Netlify, etc.):
+
+```sh
+VITE_API_BASE=https://your-backend.onrender.com npm run build
+```
+
+`VITE_API_BASE` is baked in at build time so the SPA's `POST /api/scan` and `/api/explain` calls hit the deployed backend instead of the static host (which would return 405). Leave it unset for local dev — `src/api.ts` falls back to same-origin and Vite proxies `/api` to `:3001`.
+
+### Scan server (Docker)
+
+The backend needs Playwright/Chromium, so it ships as a Docker image built on Microsoft's Playwright base image (Chromium + OS libraries preinstalled). See `Dockerfile`.
+
+```sh
+docker build -t kayai-scan .
+docker run -p 3001:3001 \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -e ALLOWED_ORIGINS=https://<your-username>.github.io \
+  kayai-scan
+```
+
+This runs on any container host that supports it (Render, Fly.io, Railway, a VPS). The container reads `$PORT` (injected by most platforms, default `3001`) and `ALLOWED_ORIGINS` for CORS. The server runs the TypeScript directly via `tsx` (`npm start`) — no separate build step.
