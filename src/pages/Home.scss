@@ -24,7 +24,7 @@
   &__headline {
     font-family: var(--heading);
     font-size: clamp(32px, 9.5vw, 96px);
-    line-height: 0.95;
+    line-height: 1;
     letter-spacing: -0.04em;
     font-weight: 500;
     color: var(--color-primary);
