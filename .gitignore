@@ -2,6 +2,9 @@ node_modules/
 .env
 .env.*
 !.env.example
+# VITE_API_BASE is a public URL (baked into the client bundle), not a secret,
+# so this one IS tracked — keeps `npm run deploy` working from any clone.
+!.env.production
 
 # Build output — published to the gh-pages branch by `npm run deploy`,
 # so it doesn't need to be tracked on main.
